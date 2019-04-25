@@ -25,6 +25,13 @@ tf.set_random_seed(1234)
 class PhysicsInformedNN:
     # Initialize the class
     def __init__(self, x0, u0, v0, tb, X_f, layers, lb, ub):
+        #x0 dataset for init 
+        #u0, v0 are the labels vor the init
+        #tb is the time stamp 
+        #x_F is the input for the Fnet
+        #layers defines the neural network 
+        #lb is the lower bound 
+        #ub is the upper bound 
         
         X0 = np.concatenate((x0, 0*x0), 1) # (x0, 0)
         X_lb = np.concatenate((0*tb + lb[0], tb), 1) # (lb[0], tb)
@@ -83,6 +90,17 @@ class PhysicsInformedNN:
                     tf.reduce_mean(tf.square(self.v_x_lb_pred - self.v_x_ub_pred)) + \
                     tf.reduce_mean(tf.square(self.f_u_pred)) + \
                     tf.reduce_mean(tf.square(self.f_v_pred))
+        
+        self.solution_loss = tf.reduce_mean(tf.square(self.u0_tf - self.u0_pred)) + \
+                             tf.reduce_mean(tf.square(self.v0_tf - self.v0_pred))
+        
+        self.bounded_loss = tf.reduce_mean(tf.square(self.u_lb_pred - self.u_ub_pred)) + \
+                            tf.reduce_mean(tf.square(self.v_lb_pred - self.v_ub_pred)) + \
+                            tf.reduce_mean(tf.square(self.u_x_lb_pred - self.u_x_ub_pred)) + \
+                            tf.reduce_mean(tf.square(self.v_x_lb_pred - self.v_x_ub_pred))
+        
+        
+        self.pde_loss = tf.reduce_mean(tf.square(self.f_u_pred)) + tf.reduce_mean(tf.square(self.f_v_pred))
         
         # Optimizers
         self.optimizer = tf.contrib.opt.ScipyOptimizerInterface(self.loss, 
@@ -182,10 +200,14 @@ class PhysicsInformedNN:
                       (it, loss_value, elapsed))
                 start_time = time.time()
                                                                                                                           
-        self.optimizer.minimize(self.sess, 
-                                feed_dict = tf_dict,         
-                                fetches = [self.loss], 
-                                loss_callback = self.callback)        
+            #self.optimizer.minimize(self.sess, 
+            #                    feed_dict = tf_dict,         
+            #                    fetches = [self.loss], 
+            #                   loss_callback = self.callback)
+        
+        sl, bl, pde_l = self.sess.run([self.solution_loss,self.bounded_loss,self.pde_loss],tf_dict)
+        return sl,bl,pde_l
+  
                                     
     
     def predict(self, X_star):
@@ -208,27 +230,32 @@ if __name__ == "__main__":
     noise = 0.0        
     
     # Doman bounds
-    lb = np.array([-5.0, 0.0])
-    ub = np.array([5.0, np.pi/2])
-
-    N0 = 50
+    lb = np.array([-5.0, 0.0]) # lower bound consists of [lower bound of x, lower bound of t]
+    ub = np.array([5.0, np.pi/2]) # ub follows from lb 
+    
+    # defines the sizes of the neural network 
+    N0 = 50 
     N_b = 50
     N_f = 20000
+    
+    #defines the neural network 
     layers = [2, 100, 100, 100, 100, 2]
         
     data = scipy.io.loadmat('../Data/NLS.mat')
     
-    t = data['tt'].flatten()[:,None]
-    x = data['x'].flatten()[:,None]
-    Exact = data['uu']
+    t = data['tt'].flatten()[:,None] #get timestamps
+    x = data['x'].flatten()[:,None] #get x positions
+    Exact = data['uu'] 
+    # definie labels 
     Exact_u = np.real(Exact)
     Exact_v = np.imag(Exact)
     Exact_h = np.sqrt(Exact_u**2 + Exact_v**2)
     
     X, T = np.meshgrid(x,t)
     
-    X_star = np.hstack((X.flatten()[:,None], T.flatten()[:,None]))
-    u_star = Exact_u.T.flatten()[:,None]
+    
+    X_star = np.hstack((X.flatten()[:,None], T.flatten()[:,None])) #concats the arrays
+    u_star = Exact_u.T.flatten()[:,None] # 
     v_star = Exact_v.T.flatten()[:,None]
     h_star = Exact_h.T.flatten()[:,None]
     
