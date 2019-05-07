@@ -200,10 +200,10 @@ class PhysicsInformedNN:
                       (it, loss_value, elapsed))
                 start_time = time.time()
                                                                                                                           
-            #self.optimizer.minimize(self.sess, 
-            #                    feed_dict = tf_dict,         
-            #                    fetches = [self.loss], 
-            #                   loss_callback = self.callback)
+        self.optimizer.minimize(self.sess, 
+                                feed_dict = tf_dict,         
+                                fetches = [self.loss], 
+                                loss_callback = self.callback)
         
         sl, bl, pde_l = self.sess.run([self.solution_loss,self.bounded_loss,self.pde_loss],tf_dict)
         return sl,bl,pde_l
